@@ -8,6 +8,10 @@ import re
 import RPi.GPIO as GPIO
 import MySQLdb
 
+import modbus_tk
+import modbus_tk.defines as cst
+import modbus_tk.modbus_tcp as modbus_tcp
+
 CRCTable = (
 0,94,188,226,97,63,221,131,194,156,126,32,163,253,31,65,
 157,195,33,127,252,162,64,30,95,1,227,189,62,96,130,220,
@@ -52,6 +56,11 @@ def setRelay(_level):
  	GPIO.output(relay, int((_level>>i) & 1) )
 	#print relay, (_level>>i) & 1, type (int ((_level>>i) & 1))
 	i+=1
+def setWAGO(_level):
+    DO = [(_level >> i) & 1 for i in range(8)][::-1]
+    #master.execute(1, cst.READ_COILS, 512, 8)
+    #master.execute(1, cst.WRITE_MULTIPLE_COILS, 512, output_value=[1, 1, 0, 1, 1, 0, 1, 1])
+    master.execute(1, cst.WRITE_MULTIPLE_COILS, 512, output_value = DO)
 
 def wiegandToTM( wiegand):
     #wiegand = "00 38 85 9D 68 48 "
@@ -93,6 +102,11 @@ setupGPIO()
 #connectSQL()
 db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
 curs=db.cursor()
+
+#connectWAGO
+master = modbus_tcp.TcpMaster(host="192.168.55.9", port=502)
+master.set_timeout(1.0)
+
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 while True:
