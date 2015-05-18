@@ -65,10 +65,13 @@ def setWAGO(_level):
     	DO_readback = client.read_coils(0x200,8,unit=1).bits
 	client.close()
 	if checkEquality(DO,DO_readback):
+            print "OK"
 	    return 1
 	else:
+	    print "write!=read"
 	    return 0
     else:
+        print "NO connection"
 	return 0
 
 def checkEquality(arr1, arr2):
@@ -149,7 +152,7 @@ while True:
 		elif level > 0:
 			#setWAGO(level)
 			setGPIO(colorToGPIO['green'])
-		setWAGO(level):
+		setWAGO(level)
 		if setToInit.isAlive():
 			setToInit.cancel()
 		setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
