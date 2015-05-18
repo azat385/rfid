@@ -7,10 +7,9 @@ from time import sleep
 import re
 import RPi.GPIO as GPIO
 import MySQLdb
+import threading
 
-import modbus_tk
-import modbus_tk.defines as cst
-import modbus_tk.modbus_tcp as modbus_tcp
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
 CRCTable = (
 0,94,188,226,97,63,221,131,194,156,126,32,163,253,31,65,
@@ -35,7 +34,8 @@ GPIO2 = 18
 defaultColor = 'blue'
 colorToGPIO = {'blue':0, 'green':1, 'red':2, 'yellow':3}
 GPIORelay = [5, 6, 13, 19, 26, 16, 20, 21]
-defaultLevel = 0
+defaultLevel = 2
+zeroLevel = 0
 
 def setupGPIO():
     GPIO.setmode(GPIO.BCM)
@@ -57,10 +57,28 @@ def setRelay(_level):
 	#print relay, (_level>>i) & 1, type (int ((_level>>i) & 1))
 	i+=1
 def setWAGO(_level):
-    DO = [(_level >> i) & 1 for i in range(8)][::-1]
+    DO = [((_level >> i) & 1)==1 for i in range(8)]
     #master.execute(1, cst.READ_COILS, 512, 8)
     #master.execute(1, cst.WRITE_MULTIPLE_COILS, 512, output_value=[1, 1, 0, 1, 1, 0, 1, 1])
-    master.execute(1, cst.WRITE_MULTIPLE_COILS, 512, output_value = DO)
+    if client.connect():
+    	rw = client.write_coils(0x200,DO,unit=1)
+    	DO_readback = client.read_coils(0x200,8,unit=1).bits
+	client.close()
+	if checkEquality(DO,DO_readback):
+	    return 1
+	else:
+	    return 0
+    else:
+	return 0
+
+def checkEquality(arr1, arr2):
+    if len(arr1)!=len(arr2):
+	return False
+    result = True
+    for a1,a2 in zip(arr1, arr2):
+	if a1!=a2:
+	    return False
+    return result
 
 def wiegandToTM( wiegand):
     #wiegand = "00 38 85 9D 68 48 "
@@ -87,6 +105,10 @@ def readSQL(code):
     else:
 	return -1
 
+def writeSQL(code):
+    curs.execute ("INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')".format(code))
+    db.commit()
+
 #if __name__ == '__main__': 
 
 ser = serial.Serial(port='/dev/ttyAMA0', 
@@ -104,9 +126,10 @@ db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
 curs=db.cursor()
 
 #connectWAGO
-master = modbus_tcp.TcpMaster(host="192.168.55.9", port=502)
-master.set_timeout(1.0)
+client = ModbusClient(host = '192.168.55.9', port = 502, timeout = 1)
 
+setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
+setToInit.start()
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 while True:
@@ -118,15 +141,21 @@ while True:
 		
 		print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
 		if level < 0:
-			setRelay(defaultLevel)
+			level = defaultLevel
 			setGPIO(colorToGPIO['red'])
 		elif level == 0:
-			setRelay(defaultLevel)
+			level = defaultLevel
 			setGPIO(colorToGPIO['yellow'])
 		elif level > 0:
-			setRelay(level)
+			#setWAGO(level)
 			setGPIO(colorToGPIO['green'])
+		setWAGO(level):
+		if setToInit.isAlive():
+			setToInit.cancel()
+		setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
+		setToInit.start()
 		sleep(0.3)
-		curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
-		db.commit()
+		writeSQL(bolidCode)
+		#curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
+		#db.commit()
 	setGPIO(colorToGPIO['blue'])
