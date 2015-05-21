@@ -32,23 +32,58 @@ CRCTable = (
 
 GPIO1 = 17 # BCM counting
 GPIO2 = 18
-defaultColor = 'blue'
-colorToGPIO = {'blue':0, 'green':1, 'red':2, 'yellow':3}
-GPIORelay = [5, 6, 13, 19, 26, 16, 20, 21]
+# colors to light up the GPIO above
+blue 	= 0b00
+green 	= 0b01
+red 	= 0b10
+yellow	= 0b11
+
 defaultLevel = 2
 zeroLevel = 0
+
+class RepeatedAction(object):
+    def __init__(self, interval, function, *args, **kwargs):
+        self._timer     = None
+        self.interval   = interval
+        self.function   = function
+        self.args       = args
+        self.kwargs     = kwargs
+        self.isRunning = False
+        self.start()
+
+    def _run(self):
+        self.isRunning = False
+        self.start()
+        self.function(*self.args, **self.kwargs)
+
+    def start(self):
+        if not self.isRunning:
+            self._timer = threading.Timer(self.interval, self._run)
+            self._timer.start()
+            self.isRunning = True
+
+    def stop(self):
+        self._timer.cancel()
+        self.isRunning = False
+
 
 def setupGPIO():
     GPIO.setmode(GPIO.BCM)
     GPIO.cleanup()
     GPIO.setup(GPIO1, GPIO.OUT)
     GPIO.setup(GPIO2, GPIO.OUT)
-    for relay in GPIORelay:
-	 GPIO.setup(relay, GPIO.OUT)
 
-def setGPIO(color):
-    GPIO.output(GPIO1, 1&color)
-    GPIO.output(GPIO2, 2&color)
+def writeColor(_color):
+    GPIO.output(GPIO1, int(1&_color >0))
+    GPIO.output(GPIO2, int(2&_color >0))
+
+def setColor(_color):
+    global writeInitColor
+    writeColor(_color)
+    if writeInitColor.isAlive():
+	 writeInitColor.cancel()
+    writeInitColor = threading.Timer(3.0,writeColor,[blue,])
+    writeInitColor.start()
 
 def setRelay(_level):
     #"{:08b}".format(127)
@@ -109,74 +144,82 @@ def wiegandToTM( wiegand):
     code.append(CRC)
     return "".join("%0.2X"%i for i in code[::-1])
 
-def connectSQL():
+def readSQL():
+    global codeToLevel
     db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
     curs=db.cursor()
 
-def readSQL(code):
-    if  curs.execute ("SELECT `level` FROM elevator WHERE code = '{}'".format(code)):
+    if curs.execute ("SELECT `level` FROM elevator"):
 	return curs.fetchall()[0][0]
     else:
-	return -1
+	pass # error logging
 
 def writeSQL(code):
     curs.execute ("INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')".format(code))
     db.commit()
 
+
+
 #if __name__ == '__main__': 
 
-ser = serial.Serial(port='/dev/ttyAMA0', 
-baudrate=2400, 
-bytesize=8, 
-parity='N', 
-stopbits=1, 
-timeout=0.1, 
-xonxoff=0, 
-rtscts=0)
+# initate global variables
+dictCodeToLevel = {}
+arrWriteToSQL 	= []
 
+# setup UART port
+ser = serial.Serial(port='/dev/ttyAMA0', baudrate=2400, bytesize=8, 
+		    parity='N', stopbits=1, timeout=0.1, 
+		    xonxoff=0, rtscts=0)
+# GPIO
 setupGPIO()
-#connectSQL()
-db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
-curs=db.cursor()
 
-#connectWAGO
+# connectWAGO
 client = ModbusClient(host = '192.168.55.9', port = 502, timeout = 1)
 
-setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
+# inital Threads
+setToInit = threading.Timer(1.0,setWAGO,[zeroLevel,])
 setToInit.start()
+
+writeInitColor = threading.Timer(1.0,writeColor,[blue,])
+writeInitColor.start()
+
+# start repeated Actions
+wSQL = RepeatedAction(300, writeSQL,)	# runs evety 5 min
+rSQL = RepeatedAction(3600, readSQL,)	# runs every 1 hour
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 test = 0
 while True:
 	response = ser.read(size=100)
 	# test
-	test += 1
-	sleep(randint(10,20))
-	if True:
-	#if response:
-		bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
-		#bolidCode =  wiegandToTM(hexString(response))
+	#test += 1
+	#sleep(randint(10,20))
+	#if True:
+	if response:
+		#bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
+		bolidCode =  wiegandToTM(hexString(response))
 		level = readSQL(bolidCode)
-		print response
+		#print response
 		print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
 		if level < 0:
 			level = defaultLevel
-			setGPIO(colorToGPIO['red'])
+			currentColor = red
+			#setGPIO(colorToGPIO['red'])
 		elif level == 0:
 			level = defaultLevel
-			setGPIO(colorToGPIO['yellow'])
+			currentColor = yellow
+			#setGPIO(colorToGPIO['yellow'])
 		elif level > 0:
 			#setWAGO(level)
-			setGPIO(colorToGPIO['green'])
+			currentColor = green
+			#setGPIO(colorToGPIO['green'])
 		setWAGOThread = threading.Thread(target=setWAGO, args=(level,))
 		setWAGOThread.start()
-		#if writeWAGO(level):
-		#	if setToInit.isAlive():
-		#		setToInit.cancel()
-		#	setToInit = threading.Timer(3.0,writeWAGO,[zeroLevel,])
-		#	setToInit.start()
-		sleep(0.3)
+		
+		setColorThread = threading.Thread(target=setColor, args=(currentColor,))
+		setColorThread.start()
+
 		writeSQL(bolidCode)
 		#curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
 		#db.commit()
-		setGPIO(colorToGPIO['blue'])
+		#setGPIO(colorToGPIO['blue'])
