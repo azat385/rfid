@@ -145,19 +145,34 @@ def wiegandToTM( wiegand):
     return "".join("%0.2X"%i for i in code[::-1])
 
 def readSQL():
-    global codeToLevel
+    global dictCodeToLevel
+    updateSQL()
     db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
     curs=db.cursor()
 
     if curs.execute ("SELECT `level` FROM elevator"):
-	return curs.fetchall()[0][0]
+	for d in curs.fetchall():
+	    dictCodeToLevel[d[0]]=d[1]	    
     else:
 	pass # error logging
+    db.close()
+
+def updateSQL():
+    pass
 
 def writeSQL(code):
-    curs.execute ("INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')".format(code))
-    db.commit()
+    global arrWriteToSQL
+    if len(arrWriteToSQL):
+	pass
+	#connect
+    else:
+	return
 
+    while len(arrWriteToSQL):
+	write = arrWriteToSQL.pop(0)
+    	curs.execute( "EXEC {}, {})".format(write[0], write[1]) )
+    db.commit()
+    db.close
 
 
 #if __name__ == '__main__': 
@@ -201,6 +216,12 @@ while True:
 		level = readSQL(bolidCode)
 		#print response
 		print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
+		if bolidCode in dictCodeToLevel:
+			level = dictCodeToLevel[bolidCode]
+		else:
+			level = -1
+
+
 		if level < 0:
 			level = defaultLevel
 			currentColor = red
@@ -219,7 +240,8 @@ while True:
 		setColorThread = threading.Thread(target=setColor, args=(currentColor,))
 		setColorThread.start()
 
-		writeSQL(bolidCode)
+		#writeSQL(bolidCode)
+		arrWriteToSQL.append( [bolidCode, str(datetime.now())[:-3] ] )
 		#curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
 		#db.commit()
 		#setGPIO(colorToGPIO['blue'])
