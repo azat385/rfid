@@ -8,6 +8,7 @@ import re
 import RPi.GPIO as GPIO
 import MySQLdb
 import threading
+from random import randint	# for testing
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
@@ -56,7 +57,17 @@ def setRelay(_level):
  	GPIO.output(relay, int((_level>>i) & 1) )
 	#print relay, (_level>>i) & 1, type (int ((_level>>i) & 1))
 	i+=1
+
 def setWAGO(_level):
+    global setToInit
+    if writeWAGO(_level):
+	if setToInit.isAlive():
+            setToInit.cancel()
+        setToInit = threading.Timer(3.0,writeWAGO,[zeroLevel,])
+        setToInit.start()
+
+
+def writeWAGO(_level):
     DO = [((_level >> i) & 1)==1 for i in range(8)]
     #master.execute(1, cst.READ_COILS, 512, 8)
     #master.execute(1, cst.WRITE_MULTIPLE_COILS, 512, output_value=[1, 1, 0, 1, 1, 0, 1, 1])
@@ -135,13 +146,18 @@ setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
 setToInit.start()
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
+test = 0
 while True:
 	response = ser.read(size=100)
-	if response:
-		#print response
-		bolidCode =  wiegandToTM(hexString(response))
+	# test
+	test += 1
+	sleep(randint(10,20))
+	if True:
+	#if response:
+		bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
+		#bolidCode =  wiegandToTM(hexString(response))
 		level = readSQL(bolidCode)
-		
+		print response
 		print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
 		if level < 0:
 			level = defaultLevel
@@ -152,13 +168,15 @@ while True:
 		elif level > 0:
 			#setWAGO(level)
 			setGPIO(colorToGPIO['green'])
-		setWAGO(level)
-		if setToInit.isAlive():
-			setToInit.cancel()
-		setToInit = threading.Timer(3.0,setWAGO,[zeroLevel,])
-		setToInit.start()
+		setWAGOThread = threading.Thread(target=setWAGO, args=(level,))
+		setWAGOThread.start()
+		#if writeWAGO(level):
+		#	if setToInit.isAlive():
+		#		setToInit.cancel()
+		#	setToInit = threading.Timer(3.0,writeWAGO,[zeroLevel,])
+		#	setToInit.start()
 		sleep(0.3)
 		writeSQL(bolidCode)
 		#curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
 		#db.commit()
-	setGPIO(colorToGPIO['blue'])
+		setGPIO(colorToGPIO['blue'])
