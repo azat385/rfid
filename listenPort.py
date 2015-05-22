@@ -7,10 +7,34 @@ from time import sleep
 import re
 import RPi.GPIO as GPIO
 import MySQLdb
+import pymssql
 import threading
 from random import randint	# for testing
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+
+import logging
+from logging.handlers import TimedRotatingFileHandler
+
+logHandler = TimedRotatingFileHandler("logs/logfile", when="midnight") #when = "M")
+logHandler.suffix = "%Y-%m-%d_%H-%M.html"
+logFormatter = logging.Formatter('%(levelname)-10.10s %(asctime)s [%(funcName)-12.12s] [%(threadName)-15.15s] %(message)s </br>\r')
+logHandler.setFormatter( logFormatter )
+logger = logging.getLogger( 'MyLogger' )
+logger.addHandler( logHandler )
+logger.setLevel( logging.DEBUG ) # CHANGE to INFO after start up!!!
+#for console logging
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+logger.addHandler( consoleHandler )
+
+logger.debug('debug message')
+logger.info('info message')
+logger.warn('warn message')
+logger.error('error message')
+logger.critical('critical message')
+
+logger.info('PROGRAMM IS STARTING...\n\n')
 
 CRCTable = (
 0,94,188,226,97,63,221,131,194,156,126,32,163,253,31,65,
@@ -40,6 +64,21 @@ yellow	= 0b11
 
 defaultLevel = 2
 zeroLevel = 0
+
+class sql():
+	def __init__(self, host, user, pswd, db, type):
+		self.host = host
+		self.user = user
+		self.pswd = pswd
+		self.db   = db
+		self.type = type
+	def connection(self):
+		return (self.host, self.user, self.pswd, self.db)
+
+# connection *args
+localSQL = sql('localhost', 'script', '1qaz2wsx', 'rfid', 'MySQL')
+remoteSQL = sql('192.168.57.253\SQLSERVER2005', 'bolid', 'bolid', 'Orion', 'MS SQL')
+# use *sql.connection() to pass *args
 
 class RepeatedAction(object):
     def __init__(self, interval, function, *args, **kwargs):
@@ -111,13 +150,13 @@ def writeWAGO(_level):
     	DO_readback = client.read_coils(0x200,8,unit=1).bits
 	client.close()
 	if checkEquality(DO,DO_readback):
-            print "OK"
+            logger.debug('write is OK')
 	    return 1
 	else:
-	    print "write!=read"
+	    logger.error("write!=read")
 	    return 0
     else:
-        print "NO connection"
+        logger.critical('NO connection')
 	return 0
 
 def checkEquality(arr1, arr2):
@@ -147,32 +186,41 @@ def wiegandToTM( wiegand):
 def readSQL():
     global dictCodeToLevel
     updateSQL()
-    db = MySQLdb.connect("localhost", "script", "1qaz2wsx", "rfid")
+    db = MySQLdb.connect(*localSQL.connection())
     curs=db.cursor()
 
-    if curs.execute ("SELECT `level` FROM elevator"):
+    if curs.execute ("SELECT code,level FROM elevator"):
+	logger.debug("updating the dict from SQL")
 	for d in curs.fetchall():
 	    dictCodeToLevel[d[0]]=d[1]	    
     else:
+	logger.error("NO connection to local SQL db")
 	pass # error logging
     db.close()
 
 def updateSQL():
+    """update local mySQL from MS SQL """
     pass
 
-def writeSQL(code):
+def writeSQL():
     global arrWriteToSQL
     if len(arrWriteToSQL):
 	pass
-	#connect
+	logger.debug("Starting...")
     else:
+	logger.debug("Nothing to write to SQL exiting sub")
 	return
-
+    con = pymssql.connect(*remoteSQL.connection())
+    cur = con.cursor()
+    
+    logger.debug("arrWriteToSQL = '{}' to be commited".format(str(arrWriteToSQL)))
     while len(arrWriteToSQL):
 	write = arrWriteToSQL.pop(0)
-    	curs.execute( "EXEC {}, {})".format(write[0], write[1]) )
-    db.commit()
-    db.close
+	cur.execute("EXEC dbo.test_ins '{}', '{}'".format(write[0], write[1]) )
+    logger.debug("Commit MS SQL db")
+    con.commit()
+    con.close()
+    logger.debug("Ending...")
 
 
 #if __name__ == '__main__': 
@@ -199,11 +247,13 @@ writeInitColor = threading.Timer(1.0,writeColor,[blue,])
 writeInitColor.start()
 
 # start repeated Actions
-wSQL = RepeatedAction(300, writeSQL,)	# runs evety 5 min
-rSQL = RepeatedAction(3600, readSQL,)	# runs every 1 hour
+writeSQL()
+wSQL = RepeatedAction(60, writeSQL,)	# runs evety 5 min
+readSQL()
+rSQL = RepeatedAction(60, readSQL,)	# runs every 1 hour
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
-test = 0
+#test = 0
 while True:
 	response = ser.read(size=100)
 	# test
@@ -213,35 +263,29 @@ while True:
 	if response:
 		#bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
 		bolidCode =  wiegandToTM(hexString(response))
-		level = readSQL(bolidCode)
-		#print response
-		print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
+
 		if bolidCode in dictCodeToLevel:
 			level = dictCodeToLevel[bolidCode]
 		else:
 			level = -1
-
-
-		if level < 0:
-			level = defaultLevel
-			currentColor = red
-			#setGPIO(colorToGPIO['red'])
-		elif level == 0:
-			level = defaultLevel
-			currentColor = yellow
-			#setGPIO(colorToGPIO['yellow'])
+		#print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
+		if level <= 0:
+			logger.warn("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
+			if level < 0:
+				level = defaultLevel
+				currentColor = red
+			elif level == 0:
+				level = defaultLevel
+				currentColor = yellow
 		elif level > 0:
-			#setWAGO(level)
+			logger.info("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
 			currentColor = green
-			#setGPIO(colorToGPIO['green'])
+		
 		setWAGOThread = threading.Thread(target=setWAGO, args=(level,))
 		setWAGOThread.start()
 		
 		setColorThread = threading.Thread(target=setColor, args=(currentColor,))
 		setColorThread.start()
-
-		#writeSQL(bolidCode)
+		
+		# add to array --> write to MS SQL later
 		arrWriteToSQL.append( [bolidCode, str(datetime.now())[:-3] ] )
-		#curs.execute ("""INSERT INTO `rfid`.`passed` (`code`) VALUES ('{}')""".format(bolidCode))
-		#db.commit()
-		#setGPIO(colorToGPIO['blue'])
