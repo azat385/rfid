@@ -9,7 +9,7 @@ import RPi.GPIO as GPIO
 import MySQLdb
 import pymssql
 import threading
-from random import randint	# for testing
+from random import randint,choice	# for testing
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
@@ -222,6 +222,9 @@ def writeSQL():
     con.close()
     logger.debug("Ending...")
 
+def getRandomCode():
+    global dictCodeToLevel
+    return choice(dictCodeToLevel.keys())
 
 #if __name__ == '__main__': 
 
@@ -253,22 +256,21 @@ readSQL()
 rSQL = RepeatedAction(60, readSQL,)	# runs every 1 hour
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
-#test = 0
+
 while True:
 	response = ser.read(size=100)
-	# test
-	#test += 1
-	#sleep(randint(10,20))
-	#if True:
-	if response:
+	sleep(randint(10,20))
+	if True:
+	#if response:
 		#bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
-		bolidCode =  wiegandToTM(hexString(response))
+		bolidCode =  getRandomCode()
+		#bolidCode =  wiegandToTM(hexString(response))
 
 		if bolidCode in dictCodeToLevel:
 			level = dictCodeToLevel[bolidCode]
 		else:
 			level = -1
-		#print "{} READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(datetime.now(), hexString(response), bolidCode, level, level)
+
 		if level <= 0:
 			logger.warn("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
 			if level < 0:
