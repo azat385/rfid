@@ -259,12 +259,12 @@ hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 
 while True:
 	response = ser.read(size=100)
-	sleep(randint(10,20))
-	if True:
-	#if response:
-		#bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
-		bolidCode =  getRandomCode()
-		#bolidCode =  wiegandToTM(hexString(response))
+	#sleep(randint(10,20))
+	#if True:
+	if response:
+		bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
+		#bolidCode =  getRandomCode()
+		bolidCode =  wiegandToTM(hexString(response))
 
 		if bolidCode in dictCodeToLevel:
 			level = dictCodeToLevel[bolidCode]
