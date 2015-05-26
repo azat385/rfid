@@ -22,7 +22,7 @@ logFormatter = logging.Formatter('%(levelname)-10.10s %(asctime)s [%(funcName)-1
 logHandler.setFormatter( logFormatter )
 logger = logging.getLogger( 'MyLogger' )
 logger.addHandler( logHandler )
-logger.setLevel( logging.DEBUG ) # CHANGE to INFO after start up!!!
+logger.setLevel( logging.INFO ) # CHANGE to INFO after start up!!!
 #for console logging
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(logFormatter)
