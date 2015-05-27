@@ -64,6 +64,7 @@ yellow	= 0b11
 
 defaultLevel = 2
 zeroLevel = 0
+clearTimeout = 7.0
 
 class sql():
 	def __init__(self, host, user, pswd, db, type):
@@ -121,7 +122,7 @@ def setColor(_color):
     writeColor(_color)
     if writeInitColor.isAlive():
 	 writeInitColor.cancel()
-    writeInitColor = threading.Timer(3.0,writeColor,[blue,])
+    writeInitColor = threading.Timer(clearTimeout,writeColor,[blue,])
     writeInitColor.start()
 
 def setRelay(_level):
@@ -137,7 +138,7 @@ def setWAGO(_level):
     if writeWAGO(_level):
 	if setToInit.isAlive():
             setToInit.cancel()
-        setToInit = threading.Timer(3.0,writeWAGO,[zeroLevel,])
+        setToInit = threading.Timer(clearTimeout,writeWAGO,[zeroLevel,])
         setToInit.start()
 
 
