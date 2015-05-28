@@ -121,12 +121,12 @@ def writeColor(_color):
     GPIO.output(GPIO1, int(1&_color >0))
     GPIO.output(GPIO2, int(2&_color >0))
 
-def setColor(_color):
+def setColor(_color, _timeout = clearTimeout):
     global writeInitColor
     writeColor(_color)
     if writeInitColor.isAlive():
 	 writeInitColor.cancel()
-    writeInitColor = threading.Timer(clearTimeout,writeColor,[blue,])
+    writeInitColor = threading.Timer(_timeout,writeColor,[blue,])
     writeInitColor.start()
 
 def setRelay(_level):
@@ -161,7 +161,7 @@ def writeWAGO(_level):
 	    logger.error("write!=read")
 	    return 0
     else:
-	threading.Thread(target=setColor, args=(yellow,)).start()
+	threading.Thread(target=setColor, args=(yellow,3,)).start()
         logger.error('NO connection')
 	return 0
 
@@ -279,12 +279,8 @@ while True:
 
 		if level <= 0:
 			logger.warn("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
-			if level < 0:
-				level = defaultLevel
-				currentColor = red
-			elif level == 0:
-				level = defaultLevel
-				currentColor = yellow
+			level = defaultLevel
+			currentColor = red
 		elif level > 0:
 			logger.info("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
 			currentColor = green
