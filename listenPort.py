@@ -162,7 +162,7 @@ def writeWAGO(_level):
 	    return 0
     else:
 	threading.Thread(target=setColor, args=(yellow,3,)).start()
-        logger.error('NO connection')
+        logger.error('NO connection to remote IO device')
 	return 0
 
 def checkEquality(arr1, arr2):
@@ -197,6 +197,12 @@ def readSQL():
 
     if curs.execute ("SELECT code,level FROM elevator"):
 	logger.debug("updating the dict from SQL")
+	if len(dictCodeToLevel)==0:
+	    logger.info("whole dictionary of Codes and Levels is loaded")
+	    for d in curs.fetchall():
+		dictCodeToLevel[d[0]]=d[1]
+	    db.close()
+	    return
 	for d in curs.fetchall():
 	    if dictCodeToLevel.has_key(d[0]):
 		if dictCodeToLevel[d[0]]!=d[1]:
