@@ -198,7 +198,13 @@ def readSQL():
     if curs.execute ("SELECT code,level FROM elevator"):
 	logger.debug("updating the dict from SQL")
 	for d in curs.fetchall():
-	    dictCodeToLevel[d[0]]=d[1]	    
+	    if dictCodeToLevel.has_key(d[0]):
+		if dictCodeToLevel[d[0]]!=d[1]:
+		    logger.info("the Level of the Code='{}' is updated from '{}' to '{}'".format(d[0], dictCodeToLevel[d[0]], d[1]) )
+		    dictCodeToLevel[d[0]]=d[1]
+	    else:
+		logger.info("new Code='{}' with a Level='{}' is added".format(d[0]], d[1]) )
+	    	dictCodeToLevel[d[0]]=d[1]	    
     else:
 	logger.error("NO connection to local SQL db")
 	pass # error logging
@@ -257,9 +263,9 @@ writeInitColor.start()
 
 # start repeated Actions
 writeSQL()
-wSQL = RepeatedAction(60, writeSQL,)	# runs evety 5 min
+wSQL = RepeatedAction(300, writeSQL,)	# runs evety 5 min
 readSQL()
-rSQL = RepeatedAction(60, readSQL,)	# runs every 1 hour
+rSQL = RepeatedAction(60, readSQL,)	# runs every 1 min
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 
