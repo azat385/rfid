@@ -17,7 +17,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 logHandler = TimedRotatingFileHandler("logs/logfile", when="midnight") #when = "M")
-logHandler.suffix = "%Y-%m-%d_%H-%M.html"
+logHandler.suffix = "%Y-%m-%d.html"
 logFormatter = logging.Formatter('%(levelname)-10.10s %(asctime)s [%(funcName)-12.12s] [%(threadName)-15.15s] %(message)s </br>\r')
 logHandler.setFormatter( logFormatter )
 logger = logging.getLogger( 'MyLogger' )
@@ -65,6 +65,10 @@ yellow	= 0b11
 defaultLevel = 2
 zeroLevel = 0
 clearTimeout = 7.0
+
+# connect buzzer
+GPIO3 = 22
+GPIO4 = 23
 
 class sql():
 	def __init__(self, host, user, pswd, db, type):
@@ -157,7 +161,8 @@ def writeWAGO(_level):
 	    logger.error("write!=read")
 	    return 0
     else:
-        logger.critical('NO connection')
+	threading.Thread(target=setColor, args=(yellow,)).start()
+        logger.error('NO connection')
 	return 0
 
 def checkEquality(arr1, arr2):
