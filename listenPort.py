@@ -209,7 +209,7 @@ def readSQL():
 		    logger.info("the Level of the Code='{}' is updated from '{}' to '{}'".format(d[0], dictCodeToLevel[d[0]], d[1]) )
 		    dictCodeToLevel[d[0]]=d[1]
 	    else:
-		logger.info("new Code='{}' with a Level='{}' is added".format(d[0]], d[1]) )
+		logger.info("new Code='{}' with a Level='{}' is added".format(d[0], d[1]) )
 	    	dictCodeToLevel[d[0]]=d[1]	    
     else:
 	logger.error("NO connection to local SQL db")
