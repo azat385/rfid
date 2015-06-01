@@ -290,13 +290,14 @@ while True:
 			level = -1
 
 		if level <= 0:
-			logger.warn("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
 			level = defaultLevel
 			currentColor = red
+			currentLogLevel = logging.WARNING
 		elif level > 0:
-			logger.info("READ:'{}' BOLID:'{}' LEVEL'{}'\t= {:08b}".format(hexString(response), bolidCode, level, level))
 			currentColor = green
-		
+			currentLogLevel = logging.INFO
+
+		logger.log(currentLogLevel, "READ:'{0}' BOLID:'{1}' LEVEL'{2:3}'= {2:08b}".format(hexString(response), bolidCode, level) )
 		setWAGOThread = threading.Thread(target=setWAGO, args=(level,))
 		setWAGOThread.start()
 		
