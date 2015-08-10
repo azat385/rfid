@@ -62,10 +62,19 @@ green 	= 0b01
 red 	= 0b10
 yellow	= 0b11
 
+#GKS levels
+""""
+	bit0 = -1
+	bit1 = 1
+	bit2 = 1 to restaurant
+	bit3 = 2
+	...
+	bit7 = 6
+""""
 defaultLevel = 0b10
 zeroLevel = 0
 nullLevel = 0
-sixLevel = 0b1000010
+sixLevel = 0b10000010
 clearTimeout = 7.0
 
 # connect buzzer
@@ -306,7 +315,7 @@ while True:
 	#sleep(randint(10,20))
 	#if True:
 	if response:
-		bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
+		#bolidCode =  wiegandToTM("00 38 85 9D 68 48 ")
 		#bolidCode =  getRandomCode()
 		bolidCode =  wiegandToTM(hexString(response))
 
