@@ -62,8 +62,10 @@ green 	= 0b01
 red 	= 0b10
 yellow	= 0b11
 
-defaultLevel = 2
+defaultLevel = 0b10
 zeroLevel = 0
+nullLevel = 0
+sixLevel = 0b1000010
 clearTimeout = 7.0
 
 # connect buzzer
@@ -244,6 +246,23 @@ def getRandomCode():
     global dictCodeToLevel
     return choice(dictCodeToLevel.keys())
 
+def schedulerForSixLevel():
+    global zeroLevel
+    currentZeroLevel = checkTime()
+    if zeroLevel <> currentZeroLevel:
+	logger.info("zeroLevel is changed from '{0:08b}' to '{1:08b}'".format(zeroLevel, currentZeroLevel) )
+	zeroLevel = currentZeroLevel
+	writeWAGO(zeroLevel)
+	
+def checkTime():
+    timeNow = datetime.now()
+    if timeNow.weekday() < 6:
+	if 18 <= timeNow.hour <= 23:
+		return sixLevel
+	else:
+		return nullLevel
+ 
+
 #if __name__ == '__main__': 
 
 # initate global variables
@@ -269,9 +288,11 @@ writeInitColor.start()
 
 # start repeated Actions
 writeSQL()
-wSQL = RepeatedAction(300, writeSQL,)	# runs evety 5 min
+wSQL = RepeatedAction(300, writeSQL,)	# runs every 5 min
 readSQL()
 rSQL = RepeatedAction(60, readSQL,)	# runs every 1 min
+schedulerForSixLevel()
+tCheck = RepeatedAction(61, schedulerForSixLevel,)	# runs every 1 min
 
 hexString = lambda byteString : " ".join(x.encode('hex') for x in byteString)
 
