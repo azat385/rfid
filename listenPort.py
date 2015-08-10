@@ -256,8 +256,13 @@ def schedulerForSixLevel():
 	
 def checkTime():
     timeNow = datetime.now()
-    if timeNow.weekday() < 6:
+    if timeNow.weekday() <  5:
 	if 18 <= timeNow.hour <= 23:
+		return sixLevel
+	else:
+		return nullLevel
+    else:
+	if 12 <= timeNow.hour <= 23:
 		return sixLevel
 	else:
 		return nullLevel
