@@ -63,14 +63,14 @@ red 	= 0b10
 yellow	= 0b11
 
 #GKS levels
-""""
+"""
 	bit0 = -1
 	bit1 = 1
 	bit2 = 1 to restaurant
 	bit3 = 2
 	...
 	bit7 = 6
-""""
+"""
 defaultLevel = 0b10
 zeroLevel = 0
 nullLevel = 0
