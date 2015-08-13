@@ -257,7 +257,11 @@ def getRandomCode():
 
 def schedulerForSixLevel():
     global zeroLevel
-    currentZeroLevel = checkTime()
+    manualZeroLevel = checkConf()
+    if manualZeroLevel > 0:
+	currentZeroLevel = manualZeroLevel
+    else:
+	currentZeroLevel = checkTime()
     if zeroLevel <> currentZeroLevel:
 	logger.info("zeroLevel is changed from '{0:08b}' to '{1:08b}'".format(zeroLevel, currentZeroLevel) )
 	zeroLevel = currentZeroLevel
@@ -275,7 +279,17 @@ def checkTime():
 		return sixLevel
 	else:
 		return nullLevel
- 
+
+def checkConf(fileName = "config.conf"):
+    f = open(fileName, "r")
+    data = f.readline()
+    f.close()
+    try:
+	data = int(data)
+    except:
+	data = 0
+    return data
+
 
 #if __name__ == '__main__': 
 
